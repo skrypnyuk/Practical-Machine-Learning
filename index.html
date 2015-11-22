@@ -71,136 +71,88 @@ img {
 
 <div id="executive-summary" class="section level3">
 <h3>Executive summary</h3>
-<p>The purpose of this report is to present a strategy for determining, which movement with a barbell has been made based on the measurements from a wearable device. There are 5 movements classes and over 100 parameters are being measured.</p>
-<p>We first clean the data, by taking out all measurements with lot’s of unavailable data, and then apply the random forest methods to the part of the training set. The resulting prediction is very good both on the part of the training set used for training and on the left out part. When we apply our method to the testing set, then all 20 test cases are predicted correctly.</p>
+<p>The purpose of this report is to present a strategy for determining, which movement with a barbell has been made based on measurements from a wearable device. There are 5 movements classes and over 100 parameters are being measured.</p>
+<p>We first clean the data, by taking out all the measurements with lot’s of unavailable data, and then apply the random forest method to a part of the training set. The resulting prediction is very good both on the part of the training set used for training and on the left out part. When we apply our method to the testing set, then all 20 test cases are predicted correctly.</p>
 </div>
-<div id="data-cleaning" class="section level3">
-<h3>Data cleaning</h3>
+<div id="data-exploration-and-cleaning" class="section level3">
+<h3>Data exploration and cleaning</h3>
+<p>We first read in the downloaded training and testing set. They each have 160 columns, but the number of rows is very different. The training set contains 19622 row, while the testing set only has 20 test cases. The last column in the training set containg the action class, while the last column of the testing set contains the problem id.</p>
 <pre class="r"><code>training&lt;-read.csv(file=&quot;pml-training.csv&quot;,header=TRUE)
-testing&lt;-read.csv(file=&quot;pml-testing.csv&quot;,header=TRUE)
-
-#inTrain = createDataPartition(adData$diagnosis, p = 3/4)[[1]]
-
-a&lt;-c()
+testing&lt;-read.csv(file=&quot;pml-testing.csv&quot;,header=TRUE)</code></pre>
+<p>While exploring data in the training data set, we notice that many variables have “NA” (not available) or “” (empty) values. We gather the stastics on such variables by assigning the variables a and b accordingly to the proportion of their according “NA” and “” values.</p>
+<pre class="r"><code>a&lt;-c()
 for (i in colnames(training)) {
   a&lt;-c(a,sum(is.na(training[,i]))/length(training[,i]))
 }
-
-a
-
+b&lt;-c()
 for (i in colnames(training)) {
-  a&lt;-c(a,sum(training[,i]==&quot;&quot;)/length(training[,i]))
-  }
-
-a
-
-training&lt;-training[,a==0]
-testing&lt;-testing[,a==0]
-
-
-library(caret)
-modfit &lt;- train(classe ~ ., data = training, trControl=trainControl(method = &quot;cv&quot;, number = 3), method=&quot;rf&quot;)
-output&lt;-pre
-a&lt;-c()
-for (i in colnames(training)) {
-  a&lt;-c(a,sum(training[,i]==&quot;&quot;)/length(training[,i]))
-  }
-training&lt;-training[,a==0]
-testing&lt;-testing[,a==0]
-training&lt;-training[,-c(1:7)]
-testing&lt;-testing[,-c(1:7)]
-
-inTrain = createDataPartition(training$classe, p = 0.7)[[1]]
-datatrain&lt;-training[inTrain,]
-datatest&lt;-training[-inTrain,]
-
-rf&lt;-randomForest(classe~.,data=datatrain)
-rfpredict&lt;-predict(rf,datatest)
-sum(rfpredict==datatest$classe)/length(datatest$classe)
-
-intcolnames&lt;-intersect(colnames(testing2),colnames(training))
-newtesting&lt;-testing2[,intcolnames]
-rfpredict&lt;-predict(rf,newtesting)
-
-#B  A  B  A  A  E  D  B  A  A  B  C  B  A  E  E  A  B  B  B </code></pre>
+  b&lt;-c(b,sum(training[,i]==&quot;&quot;)/length(training[,i]))
+  }</code></pre>
+<p>When we look at the resulting a and b vectors, we realise that there are two clear-cut classes of variables: those that have values for all cases and those that have only very few values. We can therefore throw out the variables from the second class without hardly losing any information. We also throw out the first 7 columns in the training set, because they can’t be used for prediction of an action class (they contain information such as user name and time stamp).</p>
+<pre class="r"><code>training&lt;-training[,a==0 &amp; b==0]
+training&lt;-training[,-c(1:7)]</code></pre>
+<p>The resulting training set is clean and much smaller, i.e. much easier to handle. We can now use it to fit the model.</p>
+<pre class="r"><code>dim(training)</code></pre>
+<pre><code>## [1] 19622    53</code></pre>
 </div>
 <div id="model-fitting" class="section level3">
 <h3>Model fitting</h3>
-<pre class="r"><code>training&lt;-read.csv(file=&quot;pml-training.csv&quot;,header=TRUE)
-testing&lt;-read.csv(file=&quot;pml-testing.csv&quot;,header=TRUE)
-
-#inTrain = createDataPartition(adData$diagnosis, p = 3/4)[[1]]
-
-a&lt;-c()
-for (i in colnames(training)) {
-  a&lt;-c(a,sum(is.na(training[,i]))/length(training[,i]))
-  }
-training&lt;-training[,a==0]
-testing&lt;-testing[,a==0]
-library(caret)
-modfit &lt;- train(classe ~ ., data = training, trControl=trainControl(method = &quot;cv&quot;, number = 3), method=&quot;rf&quot;)
-output&lt;-pre
-a&lt;-c()
-for (i in colnames(training)) {
-  a&lt;-c(a,sum(training[,i]==&quot;&quot;)/length(training[,i]))
-  }
-training&lt;-training[,a==0]
-testing&lt;-testing[,a==0]
-training&lt;-training[,-c(1:7)]
-testing&lt;-testing[,-c(1:7)]
-
-inTrain = createDataPartition(training$classe, p = 0.7)[[1]]
+<p>We start by subdividing the (reduced) training set into two parts. The first, bigger part (70% of the data) will be used for fitting the model. We will then apply the model to the remaining part of the data in order to assess the preciseness of the prediction on the out-of-set data.</p>
+<pre class="r"><code>library(caret)</code></pre>
+<pre><code>## Loading required package: lattice
+## Loading required package: ggplot2</code></pre>
+<pre class="r"><code>inTrain = createDataPartition(training$classe, p = 0.7)[[1]]
 datatrain&lt;-training[inTrain,]
-datatest&lt;-training[-inTrain,]
-
-rf&lt;-randomForest(classe~.,data=datatrain)
-rfpredict&lt;-predict(rf,datatest)
-sum(rfpredict==datatest$classe)/length(datatest$classe)
-
-intcolnames&lt;-intersect(colnames(testing2),colnames(training))
-newtesting&lt;-testing2[,intcolnames]
-rfpredict&lt;-predict(rf,newtesting)
-
-#B  A  B  A  A  E  D  B  A  A  B  C  B  A  E  E  A  B  B  B </code></pre>
+datatest&lt;-training[-inTrain,]</code></pre>
+<p>We apply the random forest method in order to predict the variable classe based on the rest of the variables. The standard train method is however too slow on this data set, so we turn to the method provided by the library randomForest. The resulting accuracy on the data set used for training is perfect, i.e. all cases are correctly classified.</p>
+<pre class="r"><code>library(randomForest)</code></pre>
+<pre><code>## randomForest 4.6-12
+## Type rfNews() to see new features/changes/bug fixes.</code></pre>
+<pre class="r"><code>rf&lt;-randomForest(classe~.,data=datatrain)
+rfpredict&lt;-predict(rf,datatrain)
+sum(rfpredict==datatrain$classe)/length(datatrain$classe)</code></pre>
+<pre><code>## [1] 1</code></pre>
+<p>This is of course an overestimation, because we use the same data set for training and for prediction. A less biased estimate is so called out-of-bag, where each sample is predicted based on the trees for building of which it was not used.</p>
+<pre class="r"><code>rf</code></pre>
+<pre><code>## 
+## Call:
+##  randomForest(formula = classe ~ ., data = datatrain) 
+##                Type of random forest: classification
+##                      Number of trees: 500
+## No. of variables tried at each split: 7
+## 
+##         OOB estimate of  error rate: 0.51%
+## Confusion matrix:
+##      A    B    C    D    E class.error
+## A 3902    3    0    0    1 0.001024066
+## B   13 2640    5    0    0 0.006772009
+## C    0   14 2379    3    0 0.007095159
+## D    1    0   22 2228    1 0.010657194
+## E    0    0    1    6 2518 0.002772277</code></pre>
+<p>We can see, that estimated accuracy is less then 100%, but still very high. We can have a look at which class is hardest to predict by the means of the confusion matrix. This appears to be the class D, with an error rate about 1%.</p>
 </div>
-<div id="model-validation" class="section level3">
-<h3>Model validation</h3>
-<pre class="r"><code>training&lt;-read.csv(file=&quot;pml-training.csv&quot;,header=TRUE)
-testing&lt;-read.csv(file=&quot;pml-testing.csv&quot;,header=TRUE)
-
-#inTrain = createDataPartition(adData$diagnosis, p = 3/4)[[1]]
-
-a&lt;-c()
-for (i in colnames(training)) {
-  a&lt;-c(a,sum(is.na(training[,i]))/length(training[,i]))
-  }
-training&lt;-training[,a==0]
-testing&lt;-testing[,a==0]
-library(caret)
-modfit &lt;- train(classe ~ ., data = training, trControl=trainControl(method = &quot;cv&quot;, number = 3), method=&quot;rf&quot;)
-output&lt;-pre
-a&lt;-c()
-for (i in colnames(training)) {
-  a&lt;-c(a,sum(training[,i]==&quot;&quot;)/length(training[,i]))
-  }
-training&lt;-training[,a==0]
-testing&lt;-testing[,a==0]
-training&lt;-training[,-c(1:7)]
-testing&lt;-testing[,-c(1:7)]
-
-inTrain = createDataPartition(training$classe, p = 0.7)[[1]]
-datatrain&lt;-training[inTrain,]
-datatest&lt;-training[-inTrain,]
-
-rf&lt;-randomForest(classe~.,data=datatrain)
-rfpredict&lt;-predict(rf,datatest)
-sum(rfpredict==datatest$classe)/length(datatest$classe)
-
-intcolnames&lt;-intersect(colnames(testing2),colnames(training))
-newtesting&lt;-testing2[,intcolnames]
-rfpredict&lt;-predict(rf,newtesting)
-
-#B  A  B  A  A  E  D  B  A  A  B  C  B  A  E  E  A  B  B  B </code></pre>
+<div id="prediction" class="section level3">
+<h3>Prediction</h3>
+<p>Let’s now have a look, how good is the performance of our model on the left out 30% if the data in the training data set.</p>
+<pre class="r"><code>rfpredict&lt;-predict(rf,datatest)
+sum(rfpredict==datatest$classe)/length(datatest$classe)</code></pre>
+<pre><code>## [1] 0.9962617</code></pre>
+<p>The prediction accuracy is still very good and very close to our estimated out-of-bag accuracy from above. Let’s have a look, where the errors are:</p>
+<pre class="r"><code>table(datatest$classe,rfpredict)</code></pre>
+<pre><code>##    rfpredict
+##        A    B    C    D    E
+##   A 1674    0    0    0    0
+##   B    4 1133    2    0    0
+##   C    0    3 1022    1    0
+##   D    0    0    6  956    2
+##   E    0    0    3    1 1078</code></pre>
+<p>The highest error rate has the class D, same as before. We now have to apply our model to the testing data set, where the class of actions is not known.</p>
+<pre class="r"><code>rfpredict&lt;-predict(rf,testing)
+rfpredict</code></pre>
+<pre><code>##  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 
+##  B  A  B  A  A  E  D  B  A  A  B  C  B  A  E  E  A  B  B  B 
+## Levels: A B C D E</code></pre>
+<p>We have submitted the results to coursera, and all the predicted classes resulted to be correct.</p>
 </div>
 
 
