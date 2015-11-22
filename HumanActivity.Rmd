@@ -6,143 +6,93 @@ output: html_document
 ---
 ### Executive summary
 
-The purpose of this report is to present a strategy for determining, which movement with a barbell has been made based on the measurements from a wearable device. There are 5 movements classes and over 100 parameters are being measured.
+The purpose of this report is to present a strategy for determining, which movement with a barbell has been made based on measurements from a wearable device. There are 5 movements classes and over 100 parameters are being measured.
 
-We first clean the data, by taking out all measurements with lot's of unavailable data, and then apply the random forest methods to the part of the training set. The resulting prediction is very good both on the part of the training set used for training and on the left out part. When we apply our method to the testing set, then all 20 test cases are predicted correctly.
+We first clean the data, by taking out all the measurements with lot's of unavailable data, and then apply the random forest method to a part of the training set. The resulting prediction is very good both on the part of the training set used for training and on the left out part. When we apply our method to the testing set, then all 20 test cases are predicted correctly.
 
-### Data cleaning
+### Data exploration and cleaning
 
-```{r, echo=TRUE, eval=FALSE}
+We first read in the downloaded training and testing set. They each have 160 columns, but the number of rows is very different. The training set contains 19622 row, while the testing set only has 20 test cases. The last column in the training set containg the action class, while the last column of the testing set contains the problem id.
+
+```{r, echo=TRUE}
 training<-read.csv(file="pml-training.csv",header=TRUE)
 testing<-read.csv(file="pml-testing.csv",header=TRUE)
+```
 
-#inTrain = createDataPartition(adData$diagnosis, p = 3/4)[[1]]
+While exploring data in the training data set, we notice that many variables have "NA" (not available) or "" (empty) values. We gather the stastics on such variables by assigning the variables a and b accordingly to the proportion of their according "NA" and "" values.   
 
+```{r, echo=TRUE}
 a<-c()
 for (i in colnames(training)) {
   a<-c(a,sum(is.na(training[,i]))/length(training[,i]))
 }
-
-a
-
+b<-c()
 for (i in colnames(training)) {
-  a<-c(a,sum(training[,i]=="")/length(training[,i]))
+  b<-c(b,sum(training[,i]=="")/length(training[,i]))
   }
+```
 
-a
+When we look at the resulting a and b vectors, we realise that there are two clear-cut classes of variables: those that have values for all cases and those that have only very few values. We can therefore throw out the variables from the second class without hardly losing any information. We also throw out the first 7 columns in the training set, because they can't be used for prediction of an action class (they contain information such as user name and time stamp).
 
-training<-training[,a==0]
-testing<-testing[,a==0]
-
-
-library(caret)
-modfit <- train(classe ~ ., data = training, trControl=trainControl(method = "cv", number = 3), method="rf")
-output<-pre
-a<-c()
-for (i in colnames(training)) {
-  a<-c(a,sum(training[,i]=="")/length(training[,i]))
-  }
-training<-training[,a==0]
-testing<-testing[,a==0]
+```{r, echo=TRUE}
+training<-training[,a==0 & b==0]
 training<-training[,-c(1:7)]
-testing<-testing[,-c(1:7)]
+```
 
-inTrain = createDataPartition(training$classe, p = 0.7)[[1]]
-datatrain<-training[inTrain,]
-datatest<-training[-inTrain,]
+The resulting training set is clean and much smaller, i.e. much easier to handle. We can now use it to fit the model.
 
-rf<-randomForest(classe~.,data=datatrain)
-rfpredict<-predict(rf,datatest)
-sum(rfpredict==datatest$classe)/length(datatest$classe)
-
-intcolnames<-intersect(colnames(testing2),colnames(training))
-newtesting<-testing2[,intcolnames]
-rfpredict<-predict(rf,newtesting)
-
-#B  A  B  A  A  E  D  B  A  A  B  C  B  A  E  E  A  B  B  B 
-
+```{r, echo=TRUE}
+dim(training)
 ```
 
 ### Model fitting
 
-```{r, echo=TRUE, eval=FALSE}
-training<-read.csv(file="pml-training.csv",header=TRUE)
-testing<-read.csv(file="pml-testing.csv",header=TRUE)
+We start by subdividing the (reduced) training set into two parts. The first, bigger part (70% of the data) will be used for fitting the model. We will then apply the model to the remaining part of the data in order to assess the preciseness of the prediction on the out-of-set data.
 
-#inTrain = createDataPartition(adData$diagnosis, p = 3/4)[[1]]
-
-a<-c()
-for (i in colnames(training)) {
-  a<-c(a,sum(is.na(training[,i]))/length(training[,i]))
-  }
-training<-training[,a==0]
-testing<-testing[,a==0]
+```{r, echo=TRUE}
 library(caret)
-modfit <- train(classe ~ ., data = training, trControl=trainControl(method = "cv", number = 3), method="rf")
-output<-pre
-a<-c()
-for (i in colnames(training)) {
-  a<-c(a,sum(training[,i]=="")/length(training[,i]))
-  }
-training<-training[,a==0]
-testing<-testing[,a==0]
-training<-training[,-c(1:7)]
-testing<-testing[,-c(1:7)]
-
 inTrain = createDataPartition(training$classe, p = 0.7)[[1]]
 datatrain<-training[inTrain,]
 datatest<-training[-inTrain,]
-
-rf<-randomForest(classe~.,data=datatrain)
-rfpredict<-predict(rf,datatest)
-sum(rfpredict==datatest$classe)/length(datatest$classe)
-
-intcolnames<-intersect(colnames(testing2),colnames(training))
-newtesting<-testing2[,intcolnames]
-rfpredict<-predict(rf,newtesting)
-
-#B  A  B  A  A  E  D  B  A  A  B  C  B  A  E  E  A  B  B  B 
-
 ```
 
-### Model validation
+We apply the random forest method in order to predict the variable classe based on the rest of the variables. The standard train method is however too slow on this data set, so we turn to the method provided by the library randomForest. The resulting accuracy on the data set used for training is perfect, i.e. all cases are correctly classified. 
 
-```{r, echo=TRUE, eval=FALSE}
-training<-read.csv(file="pml-training.csv",header=TRUE)
-testing<-read.csv(file="pml-testing.csv",header=TRUE)
-
-#inTrain = createDataPartition(adData$diagnosis, p = 3/4)[[1]]
-
-a<-c()
-for (i in colnames(training)) {
-  a<-c(a,sum(is.na(training[,i]))/length(training[,i]))
-  }
-training<-training[,a==0]
-testing<-testing[,a==0]
-library(caret)
-modfit <- train(classe ~ ., data = training, trControl=trainControl(method = "cv", number = 3), method="rf")
-output<-pre
-a<-c()
-for (i in colnames(training)) {
-  a<-c(a,sum(training[,i]=="")/length(training[,i]))
-  }
-training<-training[,a==0]
-testing<-testing[,a==0]
-training<-training[,-c(1:7)]
-testing<-testing[,-c(1:7)]
-
-inTrain = createDataPartition(training$classe, p = 0.7)[[1]]
-datatrain<-training[inTrain,]
-datatest<-training[-inTrain,]
-
+```{r, echo=TRUE}
+library(randomForest)
 rf<-randomForest(classe~.,data=datatrain)
+rfpredict<-predict(rf,datatrain)
+sum(rfpredict==datatrain$classe)/length(datatrain$classe)
+```
+
+This is of course an overestimation, because we use the same data set for training and for prediction. A less biased estimate is so called out-of-bag, where each sample is predicted based on the trees for building of which it was not used. 
+
+```{r, echo=TRUE}
+rf
+```
+
+We can see, that estimated accuracy is less then 100%, but still very high. We can have a look at which class is hardest to predict by the means of the confusion matrix. This appears to be the class D, with an error rate about 1%.
+
+### Prediction
+
+Let's now have a look, how good is the performance of our model on the left out 30% if the data in the training data set.
+
+```{r, echo=TRUE}
 rfpredict<-predict(rf,datatest)
 sum(rfpredict==datatest$classe)/length(datatest$classe)
-
-intcolnames<-intersect(colnames(testing2),colnames(training))
-newtesting<-testing2[,intcolnames]
-rfpredict<-predict(rf,newtesting)
-
-#B  A  B  A  A  E  D  B  A  A  B  C  B  A  E  E  A  B  B  B 
-
 ```
+
+The prediction accuracy is still very good and very close to our estimated out-of-bag accuracy from above. Let's have a look, where the errors are:
+
+```{r, echo=TRUE}
+table(datatest$classe,rfpredict)
+```
+
+The highest error rate has the class D, same as before. We now have to apply our model to the testing data set, where the class of actions is not known. 
+
+```{r, echo=TRUE}
+rfpredict<-predict(rf,testing)
+rfpredict
+```
+
+We have submitted the results to coursera, and all the predicted classes resulted to be correct.
